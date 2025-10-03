@@ -1,0 +1,23 @@
+
+# Rust build
+/target/
+**/target/
+**/*.rs.bk
+
+# Editor/IDE
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+
+# OS
+**/.DS_Store
+
+# Dependency lock (if not needed)
+Cargo.lock
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
