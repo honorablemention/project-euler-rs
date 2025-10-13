@@ -12,9 +12,9 @@ run: docker-build docker-run
 docker-build:
 	docker build --no-cache --build-arg PROJECT=$(PROJECT) -t euler-runner-$(PROJECT) .
 
-# Run in container (let Dockerfile CMD handle printing README and running binary)
+# Run in container, forwarding ARGS to the binary
 docker-run:
-	docker run --rm euler-runner-$(PROJECT)
+	docker run --rm euler-runner-$(PROJECT) sh -c 'cat /app/README.md && echo && /app/euler${PROJECT} $(ARGS)'
 
 clean:
 	docker rmi euler-runner-$(PROJECT) || true
