@@ -14,68 +14,95 @@ enum GridParseError {
 impl Grid {
 
     fn try_from_str(s: &str) -> Result<Self, GridParseError> {
-        let rows: Vec<Vec<u64>> = s
-            .lines()
-            .map(|line| {
-                line.split_whitespace()
-                    .map(|n| n.parse::<u64>().map_err(|_| GridParseError::BadNumber))
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut cells: Vec<u64> = Vec::new();
+        let mut rows = 0usize;
+        let mut cols: Option<usize> = None;
 
-        if rows.is_empty() || rows[0].is_empty() {
+        for line in s.lines() {
+            let mut this_cols = 0usize;
+
+            for n in line.split_whitespace() {
+                let val = n.parse::<u64>().map_err(|_| GridParseError::BadNumber)?;
+                cells.push(val);
+                this_cols += 1;
+            }
+
+            if this_cols == 0 {
+                continue;
+            }
+
+            match cols {
+                None => cols = Some(this_cols),
+                Some(c) if c == this_cols => {}
+                Some(_) => return Err(GridParseError::Ragged),
+            }
+
+            rows += 1;
+        }
+
+        let cols = cols.ok_or(GridParseError::Empty)?;
+        if rows == 0 {
             return Err(GridParseError::Empty);
         }
 
-        let row_count = rows.len();
-        let col_count = rows[0].len();
-
-        if !rows.iter().all(|r| r.len() == col_count) {
+        if cells.len() != rows * cols {
             return Err(GridParseError::Ragged);
         }
 
-        let cells = rows.into_iter().flatten().collect();
-        Ok(Self { cells, rows: row_count, cols: col_count })
+        Ok(Self { cells, rows, cols })
     }
 
-    fn get(&self, r: usize, c: usize) -> u64 {
+    fn at(&self, r: usize, c: usize) -> u64 {
         self.cells[r * self.cols + c]
     }
 
-    fn prod_run(&self, r: usize, c: usize, dr: isize, dc: isize, len: usize, rows: isize, cols: isize) -> Option<u64> {
-        let mut prod: u64 = 1;
-
-        for k in 0..len {
-            let rr = r as isize + dr * (k as isize);
-            let cc = c as isize + dc * (k as isize);
-
-            if rr < 0 || rr >= rows || cc < 0 || cc >= cols {
-                return None;
-            }
-
-            prod *= self.get(rr as usize, cc as usize);
-        }
-
-        Some(prod)
+    fn prod_run(&self, r: usize, c: usize, dr: isize, dc: isize, len: usize) -> u64 {
+        (0..len).fold(1u64, |prod, k| {
+            let rr = (r as isize + dr * (k as isize)) as usize;
+            let cc = (c as isize + dc * (k as isize)) as usize;
+            prod * self.at(rr, cc)
+        })
     }
 
     fn max_product(&self, len: usize) -> u64 {
-        const DIRS: [(isize, isize); 4] = [(0,1), (1,0), (1,1), (1,-1)];
+        if len == 0 || len > self.rows || len > self.cols {
+            return 0;
+        }
         let mut best = 0;
-        let rows_i = self.rows as isize;
-        let cols_i = self.cols as isize;
+        let rows = self.rows;
+        let cols = self.cols;
 
-        for r in 0..self.rows {
-            for c in 0..self.cols {
-                for (dr, dc) in DIRS {
-                    if let Some(p) = self.prod_run(r, c, dr, dc, len, rows_i, cols_i) {
-                        best = best.max(p);
-                    }
-                }
+        // right
+        for r in 0..rows {
+            for c in 0..=cols - len {
+                best = best.max(self.prod_run(r, c, 0, 1, len));
             }
         }
+
+        // down
+        for r in 0..=rows - len {
+            for c in 0..cols {
+                best = best.max(self.prod_run(r, c, 1, 0, len));
+            }
+        }
+
+        // down-right
+        for r in 0..=rows - len {
+            for c in 0..=cols - len {
+                best = best.max(self.prod_run(r, c, 1, 1, len));
+            }
+        }
+
+        // down-left
+        for r in 0..=rows - len {
+            for c in (len - 1)..cols {
+                best = best.max(self.prod_run(r, c, 1, -1, len));
+            }
+        }
+
         best
     }
+
 }
 
 fn main() {
