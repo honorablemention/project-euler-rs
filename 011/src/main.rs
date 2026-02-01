@@ -12,6 +12,7 @@ enum GridParseError {
 }
 
 impl Grid {
+    const DIRS: [(isize, isize); 4] = [(0,1), (1,0), (1,1), (1,-1)];
 
     fn try_from_str(s: &str) -> Result<Self, GridParseError> {
         let mut cells: Vec<u64> = Vec::new();
@@ -31,10 +32,9 @@ impl Grid {
                 continue;
             }
 
-            match cols {
-                None => cols = Some(this_cols),
-                Some(c) if c == this_cols => {}
-                Some(_) => return Err(GridParseError::Ragged),
+            let expected = cols.get_or_insert(this_cols);
+            if *expected != this_cols {
+                return Err(GridParseError::Ragged);
             }
 
             rows += 1;
@@ -64,45 +64,51 @@ impl Grid {
         })
     }
 
+    fn scan_starts<I>(&self, starts: I, dr: isize, dc: isize, len: usize) -> u64
+        where
+            I: IntoIterator<Item = (usize, usize)>,
+    {
+        starts
+            .into_iter()
+            .map(|(r, c)| self.prod_run(r, c, dr, dc, len))
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn scan_dir(&self, dr: isize, dc: isize, len: usize) -> u64 {
+        let Grid { rows, cols, .. } = *self;
+
+        match (dr, dc) {
+            (0, 1) => self.scan_starts(
+                (0..rows).flat_map(|r| (0..=cols - len).map(move |c| (r, c))),
+                dr, dc, len
+            ),
+            (1, 0) => self.scan_starts(
+                (0..=rows - len).flat_map(|r| (0..cols).map(move |c| (r, c))),
+                dr, dc, len
+            ),
+            (1, 1) => self.scan_starts(
+                (0..=rows - len).flat_map(|r| (0..=cols - len).map(move |c| (r, c))),
+                dr, dc, len
+            ),
+            (1, -1) => self.scan_starts(
+                (0..=rows - len).flat_map(|r| ((len - 1)..cols).map(move |c| (r, c))),
+                dr, dc, len
+            ),
+            _ => 0,
+        }
+    }
+
     fn max_product(&self, len: usize) -> u64 {
         if len == 0 || len > self.rows || len > self.cols {
             return 0;
         }
-        let mut best = 0;
-        let rows = self.rows;
-        let cols = self.cols;
 
-        // right
-        for r in 0..rows {
-            for c in 0..=cols - len {
-                best = best.max(self.prod_run(r, c, 0, 1, len));
-            }
-        }
-
-        // down
-        for r in 0..=rows - len {
-            for c in 0..cols {
-                best = best.max(self.prod_run(r, c, 1, 0, len));
-            }
-        }
-
-        // down-right
-        for r in 0..=rows - len {
-            for c in 0..=cols - len {
-                best = best.max(self.prod_run(r, c, 1, 1, len));
-            }
-        }
-
-        // down-left
-        for r in 0..=rows - len {
-            for c in (len - 1)..cols {
-                best = best.max(self.prod_run(r, c, 1, -1, len));
-            }
-        }
-
-        best
+       Self::DIRS.iter()
+        .map(|&(dr, dc)| self.scan_dir(dr, dc, len))
+        .max()
+        .unwrap_or(0)
     }
-
 }
 
 fn main() {
