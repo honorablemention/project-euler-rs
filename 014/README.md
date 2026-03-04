@@ -9,3 +9,29 @@ $$13 \to 40 \to 20 \to 10 \to 5 \to 16 \to 8 \to 4 \to 2 \to 1.$$</p>
 <p>It can be seen that this sequence (starting at $13$ and finishing at $1$) contains $10$ terms. Although it has not been proved yet (Collatz Problem), it is thought that all starting numbers finish at $1$.</p>
 <p>Which starting number, under one million, produces the longest chain?</p>
 <p class="note"><b>NOTE:</b> Once the chain starts the terms are allowed to go above one million.</p>
+
+## Implementation Notes
+
+This solution keeps both an iterator-based and a loop-based chain-length implementation for comparison, but the default executable uses the loop-based solver.
+
+The current implementation keeps the changes that actually helped in a benchmarking exploration:
+
+- memoization in a `Vec<u32>` for values up to the problem limit
+- odd-step folding in the loop path: for odd `n`, it records both `n` and `3n + 1`, then continues at `(3n + 1) / 2`
+- a reusable `path` buffer across the full search instead of rebuilding it for every starting value
+- `Vec::with_capacity(256)` for the `path` scratch space
+
+## Benchmarking
+
+Criterion benchmarks live in `benches/collatz.rs`.
+
+Run them with:
+
+```sh
+cargo bench --bench collatz
+```
+
+The benchmark suite includes:
+
+- isolated `get_len_iter` and `get_len_loop` comparisons over a fixed set of representative starting values
+- full `solve_with_iter` and `solve_with_loop` benchmarks for the whole Euler 14 search
